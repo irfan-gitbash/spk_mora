@@ -531,6 +531,27 @@ require_once '../../includes/header.php';
                 </tbody>
             </table>
         </div>
+        
+        <!-- Tombol Simpan Hasil -->
+        <div class="mt-6 flex justify-center">
+            <form method="POST" action="save_moora_results.php" class="inline">
+                <input type="hidden" name="optimization_results" value="<?php echo htmlspecialchars(json_encode($optimization_results)); ?>">
+                <input type="hidden" name="optimization_details" value="<?php echo htmlspecialchars(json_encode($optimization_details)); ?>">
+                <input type="hidden" name="decision_matrix" value="<?php echo htmlspecialchars(json_encode($decision_matrix)); ?>">
+                <input type="hidden" name="normalized_matrix" value="<?php echo htmlspecialchars(json_encode($normalized_matrix)); ?>">
+                <input type="hidden" name="weighted_matrix" value="<?php echo htmlspecialchars(json_encode($weighted_matrix)); ?>">
+                <input type="hidden" name="kriterias" value="<?php echo htmlspecialchars(json_encode($kriterias)); ?>">
+                <input type="hidden" name="alternatifs" value="<?php echo htmlspecialchars(json_encode($alternatifs)); ?>">
+                
+                <button type="submit" 
+                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                    </svg>
+                    💾 Simpan Hasil ke Database
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- Enhanced Explanation -->
@@ -565,11 +586,6 @@ require_once '../../includes/header.php';
                     <li><strong>Peringkat Tengah:</strong> Alternatif dengan performa cukup baik</li>
                     <li><strong>Peringkat Bawah:</strong> Alternatif yang memerlukan perbaikan</li>
                 </ul>
-            </div>
-            
-            <div class="mt-4 p-3 bg-blue-100 rounded">
-                <p><strong>📚 Referensi Akademik:</strong></p>
-                <p class="text-sm">Implementasi ini mengikuti metodologi MOORA yang dikembangkan oleh Brauers dan Zavadskas (2006) dan telah terbukti efektif untuk optimasi multi-objektif dalam berbagai domain aplikasi.</p>
             </div>
         </div>
     </div>

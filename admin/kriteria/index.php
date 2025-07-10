@@ -154,8 +154,8 @@ require_once '../../includes/header.php';
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-gray-900">Manajemen Kriteria</h1>
         <div class="flex space-x-3">
-            <a href="?export=pdf" target="_blank" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
-                <i class="fas fa-file-pdf mr-2"></i>Export PDF
+            <a href="download_pdf_kriteria.php" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                <i class="fas fa-file-pdf mr-2"></i>Download PDF
             </a>
             <a href="create.php" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700">
                 <i class="fas fa-plus mr-2"></i>Tambah Kriteria

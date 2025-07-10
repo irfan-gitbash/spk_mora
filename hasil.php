@@ -1,129 +1,178 @@
 <?php
-require_once 'includes/auth.php';
-require_once 'moora/Moora.php';
-
-$auth->requireLogin();
-
-// Get database connection
-$database = new Database();
-$conn = $database->getConnection();
-
-$error = '';
-$results = null;
-
-// Handle calculation request
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        error_log("Starting MOORA calculation from hasil.php");
-        $moora = new Moora($conn);
-        $results = $moora->calculate();
-        error_log("MOORA calculation completed. Results: " . json_encode($results));
-    } catch (Exception $e) {
-        error_log("Error in MOORA calculation: " . $e->getMessage());
-        $error = 'Gagal melakukan perhitungan: ' . $e->getMessage();
-    }
-}
-
-// Get latest results if not calculating
-if (!$results) {
-    try {
-        error_log("Fetching latest results from database");
-        $stmt = $conn->prepare("
-            SELECT h.ranking, h.nilai_akhir, a.id as id_alternatif, a.nama_metode
-            FROM hasil h
-            JOIN alternatif a ON h.id_alternatif = a.id
-            WHERE h.tanggal_perhitungan = (
-                SELECT MAX(tanggal_perhitungan) FROM hasil
-            )
-            ORDER BY h.ranking ASC
-        ");
-        $stmt->execute();
-        $results = $stmt->fetchAll();
-        error_log("Latest results fetched: " . json_encode($results));
-    } catch (PDOException $e) {
-        error_log("Error fetching results: " . $e->getMessage());
-        $error = 'Gagal mengambil hasil perhitungan: ' . $e->getMessage();
-    }
-}
-
+require_once 'config/database.php';
 require_once 'includes/header.php';
+
+// Inisialisasi koneksi database
+$database = new Database();
+$pdo = $database->getConnection();
+
+// Ambil ID sesi dari parameter URL atau ambil yang terbaru
+$sesi_id = isset($_GET['sesi_id']) ? (int)$_GET['sesi_id'] : null;
+
+if (!$sesi_id) {
+    // Ambil sesi terbaru jika tidak ada ID yang diberikan
+    $stmt = $pdo->query("SELECT id FROM sesi_perhitungan_moora ORDER BY created_at DESC LIMIT 1");
+    $latest_session = $stmt->fetch();
+    $sesi_id = $latest_session ? $latest_session['id'] : null;
+}
+
+if (!$sesi_id) {
+    echo '<div class="container mx-auto px-4 py-8">';
+    echo '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">';
+    echo 'Tidak ada hasil perhitungan MOORA yang tersimpan.';
+    echo '</div>';
+    echo '</div>';
+    require_once 'includes/footer.php';
+    exit();
+}
+
+// Ambil informasi sesi
+$stmt = $pdo->prepare("SELECT * FROM sesi_perhitungan_moora WHERE id = ?");
+$stmt->execute([$sesi_id]);
+$sesi_info = $stmt->fetch();
+
+// Ambil hasil perhitungan
+$stmt = $pdo->prepare("
+    SELECT * FROM hasil_moora 
+    WHERE sesi_id = ? 
+    ORDER BY ranking ASC
+");
+$stmt->execute([$sesi_id]);
+$hasil_moora = $stmt->fetchAll();
+
+if (!$hasil_moora) {
+    echo '<div class="container mx-auto px-4 py-8">';
+    echo '<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">';
+    echo 'Hasil perhitungan tidak ditemukan untuk sesi ini.';
+    echo '</div>';
+    echo '</div>';
+    require_once 'includes/footer.php';
+    exit();
+}
 ?>
 
-<div class="bg-white shadow rounded-lg p-6">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Hasil Perhitungan MOORA</h1>
-        <form method="POST" class="inline">
-            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                Hitung Ulang
-            </button>
-        </form>
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">📊 Hasil Perhitungan MOORA</h1>
+        <p class="text-gray-600">Sistem Pendukung Keputusan Pemilihan Metode Pembelajaran</p>
+        <?php if ($sesi_info): ?>
+        <div class="mt-4 text-sm text-gray-500">
+            <p>Tanggal Perhitungan: <?php echo date('d/m/Y H:i:s', strtotime($sesi_info['tanggal_perhitungan'])); ?></p>
+            <p>Jumlah Alternatif: <?php echo $sesi_info['jumlah_alternatif']; ?> | Jumlah Kriteria: <?php echo $sesi_info['jumlah_kriteria']; ?></p>
+        </div>
+        <?php endif; ?>
     </div>
 
-    <?php if ($error): ?>
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-        <span class="block sm:inline"><?php echo htmlspecialchars($error); ?></span>
+    <!-- Hasil Perangkingan -->
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6">
+            <h2 class="text-xl font-semibold">🏆 Hasil Perangkingan Metode Pembelajaran</h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Peringkat</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metode Pembelajaran</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">∑ Benefit</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">∑ Cost</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai Optimasi (Yi)</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <?php foreach ($hasil_moora as $hasil): 
+                        $rank = $hasil['ranking'];
+                        $status_class = '';
+                        $status_icon = '';
+                        
+                        if ($rank == 1) {
+                            $status_class = 'bg-yellow-100 text-yellow-800';
+                            $status_icon = '🏆';
+                        } elseif ($rank == 2) {
+                            $status_class = 'bg-gray-100 text-gray-800';
+                            $status_icon = '🥈';
+                        } elseif ($rank == 3) {
+                            $status_class = 'bg-orange-100 text-orange-800';
+                            $status_icon = '🥉';
+                        } elseif ($rank <= ceil(count($hasil_moora) * 0.5)) {
+                            $status_class = 'bg-blue-100 text-blue-800';
+                            $status_icon = '⭐';
+                        } else {
+                            $status_class = 'bg-red-100 text-red-800';
+                            $status_icon = '📈';
+                        }
+                    ?>
+                    <tr class="<?php echo $rank <= 3 ? 'bg-green-50' : ($rank <= ceil(count($hasil_moora) * 0.5) ? 'bg-blue-50' : 'bg-red-50'); ?>">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full 
+                                <?php echo $rank <= 3 ? 'bg-green-100 text-green-800' : ($rank <= ceil(count($hasil_moora) * 0.5) ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'); ?>">
+                                #<?php echo $rank; ?>
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($hasil['nama_alternatif']); ?></div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="text-sm font-medium text-green-600"><?php echo number_format($hasil['benefit_sum'], 4); ?></span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="text-sm font-medium text-red-600"><?php echo number_format($hasil['cost_sum'], 4); ?></span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="text-sm font-bold <?php echo $rank <= 3 ? 'text-green-600' : ($rank <= ceil(count($hasil_moora) * 0.5) ? 'text-blue-600' : 'text-red-600'); ?>">
+                                <?php echo number_format($hasil['yi_value'], 4); ?>
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $status_class; ?>">
+                                <?php echo $status_icon; ?> <?php echo $hasil['ranking_status']; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Interpretasi Hasil -->
+    <?php if (!empty($hasil_moora)): 
+        $terbaik = $hasil_moora[0]; // Peringkat 1
+    ?>
+    <div class="bg-gradient-to-r from-green-100 to-blue-100 rounded-lg p-6 border-l-4 border-green-500">
+        <h3 class="text-lg font-semibold text-green-800 mb-3">🎯 Interpretasi Hasil</h3>
+        <div class="text-green-700">
+            <p class="mb-2">
+                <strong>Metode pembelajaran terbaik:</strong> 
+                <span class="font-bold text-green-800"><?php echo htmlspecialchars($terbaik['nama_alternatif']); ?></span>
+            </p>
+            <p class="mb-2">
+                <strong>Nilai optimasi (Yi):</strong> 
+                <span class="font-bold"><?php echo number_format($terbaik['yi_value'], 4); ?></span>
+            </p>
+            <p class="text-sm">
+                Metode ini memiliki nilai optimasi tertinggi berdasarkan perhitungan MOORA, 
+                yang menunjukkan bahwa metode ini paling optimal untuk diterapkan berdasarkan 
+                kriteria yang telah ditetapkan.
+            </p>
+        </div>
     </div>
     <?php endif; ?>
 
-    <?php if (empty($results)): ?>
-    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
-        <span class="block sm:inline">Belum ada hasil perhitungan.</span>
+    <!-- Tombol Aksi -->
+    <div class="mt-8 flex justify-center space-x-4">
+        <a href="admin/penilaian/index.php" 
+           class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">
+            🔄 Hitung Ulang
+        </a>
+        <a href="download_pdf.php<?php echo $sesi_id ? '?sesi_id=' . $sesi_id : ''; ?>" 
+           class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">
+            📄 Download PDF
+        </a>
     </div>
-    <?php else: ?>
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ranking</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metode Pengajaran</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai Optimasi</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                <?php foreach ($results as $result): ?>
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            <?php echo $result['ranking'] <= 3 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'; ?>">
-                            <?php echo $result['ranking']; ?>
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <?php echo htmlspecialchars($result['nama_metode']); ?>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <?php echo number_format($result['nilai_akhir'], 4); ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Explanation -->
-    <div class="mt-8 p-4 bg-blue-50 rounded-lg">
-        <h2 class="text-lg font-semibold text-blue-900 mb-2">Interpretasi Hasil</h2>
-        <p class="text-blue-800">
-            Hasil perhitungan menggunakan metode MOORA menunjukkan bahwa:
-        </p>
-        <ul class="list-disc list-inside mt-2 space-y-2 text-blue-800">
-            <li>
-                <strong><?php echo htmlspecialchars($results[0]['nama_metode']); ?></strong> 
-                merupakan metode pengajaran yang paling direkomendasikan dengan nilai optimasi 
-                <?php echo number_format($results[0]['nilai_akhir'], 4); ?>.
-            </li>
-            <?php if (count($results) > 1): ?>
-            <li>
-                Diikuti oleh <strong><?php echo htmlspecialchars($results[1]['nama_metode']); ?></strong> 
-                di peringkat kedua dengan nilai <?php echo number_format($results[1]['nilai_akhir'], 4); ?>.
-            </li>
-            <?php endif; ?>
-            <li>
-                Perhitungan ini mempertimbangkan semua kriteria yang telah ditentukan beserta bobotnya.
-            </li>
-        </ul>
-    </div>
-    <?php endif; ?>
 </div>
 
 <?php require_once 'includes/footer.php'; ?>
