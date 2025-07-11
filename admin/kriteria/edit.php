@@ -9,56 +9,113 @@ $conn = $database->getConnection();
 
 $error = '';
 $success = false;
-$kriteria = null;
 
-// Get kriteria by ID
-if (isset($_GET['id'])) {
-    $stmt = $conn->prepare("SELECT * FROM kriteria WHERE id = ?");
-    $stmt->execute([$_GET['id']]);
-    $kriteria = $stmt->fetch();
-    
-    if (!$kriteria) {
-        header("Location: index.php");
-        exit();
-    }
-} else {
+// Get kriteria data by ID
+if (!isset($_GET['id'])) {
     header("Location: index.php");
     exit();
 }
 
+$kriteria_id = $_GET['id'];
+
+// Fetch existing kriteria data
+$stmt = $conn->prepare("SELECT * FROM kriteria WHERE id = ?");
+$stmt->execute([$kriteria_id]);
+$existing_kriteria = $stmt->fetch();
+
+if (!$existing_kriteria) {
+    header("Location: index.php");
+    exit();
+}
+
+// Get student data for dropdown
+$siswa_list = $conn->query("SELECT id, nama FROM siswa ORDER BY nama")->fetchAll();
+
+// Get all kriteria data for this student to populate the form
+$stmt = $conn->prepare("SELECT * FROM kriteria WHERE id_siswa = ?");
+$stmt->execute([$existing_kriteria['id_siswa']]);
+$student_kriteria = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Organize data by strategy
+$kriteria_by_strategy = [];
+foreach ($student_kriteria as $k) {
+    $kriteria_by_strategy[$k['strategi']] = $k;
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nama_kriteria = trim($_POST['nama_kriteria'] ?? '');
-    $bobot = trim($_POST['bobot'] ?? '');
-    $tipe = $_POST['tipe'] ?? '';
+    $id_siswa = $_POST['id_siswa'] ?? '';
     
-    // Validation
-    if (empty($nama_kriteria)) {
-        $error = 'Nama kriteria harus diisi';
-    } elseif (!is_numeric($bobot) || $bobot <= 0) {
-        $error = 'Bobot harus berupa angka positif';
-    } elseif (!in_array($tipe, ['benefit', 'cost'])) {
-        $error = 'Tipe kriteria tidak valid';
+    if (empty($id_siswa)) {
+        $error = 'Pilih siswa terlebih dahulu';
     } else {
         try {
-            // Check if total weights would exceed 1 (excluding current weight)
-            $stmt = $conn->prepare("SELECT SUM(bobot) as total FROM kriteria WHERE id != ?");
-            $stmt->execute([$_GET['id']]);
-            $current_total = $stmt->fetch()['total'];
-            $new_total = $current_total + $bobot;
+            $conn->beginTransaction();
             
-            if ($new_total > 1) {
-                $error = 'Total bobot tidak boleh melebihi 1. Sisa bobot yang tersedia: ' . number_format(1 - $current_total, 2);
-            } else {
-                // Update criteria
-                $stmt = $conn->prepare("UPDATE kriteria SET nama_kriteria = ?, bobot = ?, tipe = ? WHERE id = ?");
-                $stmt->execute([$nama_kriteria, $bobot, $tipe, $_GET['id']]);
+            // Define strategies
+            $strategies = [
+                '12' => 'Demonstran',
+                '13' => 'Diskusi', 
+                '14' => 'Praktikkum'
+            ];
+            
+            foreach ($strategies as $strategy_id => $strategy_name) {
+                $grammar = $_POST["grammar_{$strategy_id}"] ?? 0;
+                $speaking = $_POST["speaking_{$strategy_id}"] ?? 0;
+                $motivasi = $_POST["motivasi_{$strategy_id}"] ?? 0;
+                $gaya = $_POST["gaya_{$strategy_id}"] ?? '';
+                $kecocokan = $_POST["kecocokan_{$strategy_id}"] ?? 0;
+                $durasi = $_POST["durasi_{$strategy_id}"] ?? 0;
+                $kognitif = $_POST["kognitif_{$strategy_id}"] ?? 0;
                 
-                header("Location: index.php?success=1");
-                exit();
+                // Check if data exists for this student and strategy
+                $check_stmt = $conn->prepare("SELECT id FROM kriteria WHERE id_siswa = ? AND strategi = ?");
+                $check_stmt->execute([$id_siswa, $strategy_name]);
+                
+                if ($check_stmt->fetch()) {
+                    // Update existing data
+                    $stmt = $conn->prepare("
+                        UPDATE kriteria SET 
+                            kemampuan_grammar = ?, 
+                            kemampuan_speaking = ?, 
+                            motivasi_belajar = ?, 
+                            gaya_belajar = ?, 
+                            kecocokan_strategi = ?, 
+                            durasi = ?, 
+                            bobot_kognitif = ?
+                        WHERE id_siswa = ? AND strategi = ?
+                    ");
+                    $stmt->execute([
+                        $grammar, $speaking, $motivasi, $gaya, 
+                        $kecocokan, $durasi, $kognitif, 
+                        $id_siswa, $strategy_name
+                    ]);
+                } else {
+                    // Insert new data
+                    $stmt = $conn->prepare("
+                        INSERT INTO kriteria (
+                            id_siswa, strategi, kemampuan_grammar, kemampuan_speaking, 
+                            motivasi_belajar, gaya_belajar, kecocokan_strategi, 
+                            durasi, bobot_kognitif
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $id_siswa, $strategy_name, $grammar, $speaking, 
+                        $motivasi, $gaya, $kecocokan, $durasi, $kognitif
+                    ]);
+                }
             }
+            
+            $conn->commit();
+            header("Location: index.php?success=1");
+            exit();
+            
         } catch (PDOException $e) {
+            $conn->rollBack();
             $error = 'Gagal mengupdate kriteria: ' . $e->getMessage();
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $error = $e->getMessage();
         }
     }
 }
@@ -79,29 +136,149 @@ require_once '../../includes/header.php';
     <?php endif; ?>
 
     <form action="" method="POST" class="space-y-6">
+        <!-- Data Siswa -->
         <div>
-            <label for="nama_kriteria" class="block text-sm font-medium text-gray-700">Nama Kriteria</label>
-            <input type="text" name="nama_kriteria" id="nama_kriteria" required
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                value="<?php echo htmlspecialchars($_POST['nama_kriteria'] ?? $kriteria['nama_kriteria']); ?>">
-        </div>
-
-        <div>
-            <label for="bobot" class="block text-sm font-medium text-gray-700">Bobot</label>
-            <input type="number" name="bobot" id="bobot" required step="0.01" min="0" max="1"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                value="<?php echo htmlspecialchars($_POST['bobot'] ?? $kriteria['bobot']); ?>">
-            <p class="mt-1 text-sm text-gray-500">Masukkan nilai antara 0 dan 1. Total bobot semua kriteria tidak boleh melebihi 1.</p>
-        </div>
-
-        <div>
-            <label for="tipe" class="block text-sm font-medium text-gray-700">Tipe</label>
-            <select name="tipe" id="tipe" required
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
-                <option value="">Pilih Tipe</option>
-                <option value="benefit" <?php echo (isset($_POST['tipe']) ? $_POST['tipe'] === 'benefit' : $kriteria['tipe'] === 'benefit') ? 'selected' : ''; ?>>Benefit</option>
-                <option value="cost" <?php echo (isset($_POST['tipe']) ? $_POST['tipe'] === 'cost' : $kriteria['tipe'] === 'cost') ? 'selected' : ''; ?>>Cost</option>
+            <label for="id_siswa" class="block text-sm font-medium text-gray-700 mb-2">Pilih SISWA</label>
+            <select id="id_siswa" name="id_siswa" class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" required>
+                <option value="">-- Pilih SISWA --</option>
+                <?php foreach ($siswa_list as $siswa): ?>
+                <option value="<?php echo $siswa['id']; ?>" <?php echo ($siswa['id'] == $existing_kriteria['id_siswa']) ? 'selected' : ''; ?>>
+                    <?php echo htmlspecialchars($siswa['nama']); ?>
+                </option>
+                <?php endforeach; ?>
             </select>
+        </div>
+
+        <!-- Kriteria Table -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">no</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategi</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kemampuan grammar</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kemampuan Speaking</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motivasi Belajar</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gaya belajar</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kecocokan strategi</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durasi (menit)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bobot kognitif</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <!-- Demonstran -->
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">1</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Demonstran</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="grammar_12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Demonstran']) ? htmlspecialchars($kriteria_by_strategy['Demonstran']['kemampuan_grammar']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="speaking_12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Demonstran']) ? htmlspecialchars($kriteria_by_strategy['Demonstran']['kemampuan_speaking']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="motivasi_12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="10" 
+                                value="<?php echo isset($kriteria_by_strategy['Demonstran']) ? htmlspecialchars($kriteria_by_strategy['Demonstran']['motivasi_belajar']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <select name="gaya_12" class="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
+                                <option value="">Pilih</option>
+                                <option value="Visual" <?php echo (isset($kriteria_by_strategy['Demonstran']) && $kriteria_by_strategy['Demonstran']['gaya_belajar'] == 'Visual') ? 'selected' : ''; ?>>Visual</option>
+                                <option value="Auditori" <?php echo (isset($kriteria_by_strategy['Demonstran']) && $kriteria_by_strategy['Demonstran']['gaya_belajar'] == 'Auditori') ? 'selected' : ''; ?>>Auditori</option>
+                                <option value="Kinestetik" <?php echo (isset($kriteria_by_strategy['Demonstran']) && $kriteria_by_strategy['Demonstran']['gaya_belajar'] == 'Kinestetik') ? 'selected' : ''; ?>>Kinestetik</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="kecocokan_12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Demonstran']) ? htmlspecialchars($kriteria_by_strategy['Demonstran']['kecocokan_strategi']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="durasi_12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Demonstran']) ? htmlspecialchars($kriteria_by_strategy['Demonstran']['durasi']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="kognitif_12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Demonstran']) ? htmlspecialchars($kriteria_by_strategy['Demonstran']['bobot_kognitif']) : ''; ?>">
+                        </td>
+                    </tr>
+                    <!-- Diskusi -->
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Diskusi</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="grammar_13" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Diskusi']) ? htmlspecialchars($kriteria_by_strategy['Diskusi']['kemampuan_grammar']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="speaking_13" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Diskusi']) ? htmlspecialchars($kriteria_by_strategy['Diskusi']['kemampuan_speaking']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="motivasi_13" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="10" 
+                                value="<?php echo isset($kriteria_by_strategy['Diskusi']) ? htmlspecialchars($kriteria_by_strategy['Diskusi']['motivasi_belajar']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <select name="gaya_13" class="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
+                                <option value="">Pilih</option>
+                                <option value="Visual" <?php echo (isset($kriteria_by_strategy['Diskusi']) && $kriteria_by_strategy['Diskusi']['gaya_belajar'] == 'Visual') ? 'selected' : ''; ?>>Visual</option>
+                                <option value="Auditori" <?php echo (isset($kriteria_by_strategy['Diskusi']) && $kriteria_by_strategy['Diskusi']['gaya_belajar'] == 'Auditori') ? 'selected' : ''; ?>>Auditori</option>
+                                <option value="Kinestetik" <?php echo (isset($kriteria_by_strategy['Diskusi']) && $kriteria_by_strategy['Diskusi']['gaya_belajar'] == 'Kinestetik') ? 'selected' : ''; ?>>Kinestetik</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="kecocokan_13" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Diskusi']) ? htmlspecialchars($kriteria_by_strategy['Diskusi']['kecocokan_strategi']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="durasi_13" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Diskusi']) ? htmlspecialchars($kriteria_by_strategy['Diskusi']['durasi']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="kognitif_13" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Diskusi']) ? htmlspecialchars($kriteria_by_strategy['Diskusi']['bobot_kognitif']) : ''; ?>">
+                        </td>
+                    </tr>
+                    <!-- Praktikkum -->
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">3</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Praktikkum</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="grammar_14" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Praktikkum']) ? htmlspecialchars($kriteria_by_strategy['Praktikkum']['kemampuan_grammar']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="speaking_14" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Praktikkum']) ? htmlspecialchars($kriteria_by_strategy['Praktikkum']['kemampuan_speaking']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="motivasi_14" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="10" 
+                                value="<?php echo isset($kriteria_by_strategy['Praktikkum']) ? htmlspecialchars($kriteria_by_strategy['Praktikkum']['motivasi_belajar']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <select name="gaya_14" class="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
+                                <option value="">Pilih</option>
+                                <option value="Visual" <?php echo (isset($kriteria_by_strategy['Praktikkum']) && $kriteria_by_strategy['Praktikkum']['gaya_belajar'] == 'Visual') ? 'selected' : ''; ?>>Visual</option>
+                                <option value="Auditori" <?php echo (isset($kriteria_by_strategy['Praktikkum']) && $kriteria_by_strategy['Praktikkum']['gaya_belajar'] == 'Auditori') ? 'selected' : ''; ?>>Auditori</option>
+                                <option value="Kinestetik" <?php echo (isset($kriteria_by_strategy['Praktikkum']) && $kriteria_by_strategy['Praktikkum']['gaya_belajar'] == 'Kinestetik') ? 'selected' : ''; ?>>Kinestetik</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="kecocokan_14" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Praktikkum']) ? htmlspecialchars($kriteria_by_strategy['Praktikkum']['kecocokan_strategi']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="durasi_14" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Praktikkum']) ? htmlspecialchars($kriteria_by_strategy['Praktikkum']['durasi']) : ''; ?>">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input type="number" name="kognitif_14" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" min="0" max="100" 
+                                value="<?php echo isset($kriteria_by_strategy['Praktikkum']) ? htmlspecialchars($kriteria_by_strategy['Praktikkum']['bobot_kognitif']) : ''; ?>">
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="flex justify-end">

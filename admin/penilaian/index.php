@@ -278,7 +278,7 @@ require_once '../../includes/header.php';
     <div class="mb-8 p-6 bg-blue-50 rounded-lg border-l-4 border-blue-400">
         <h2 class="text-xl font-semibold text-blue-900 mb-4">📚 Metodologi MOORA (Multi-Objective Optimization by Ratio Analysis)</h2>
         <div class="text-blue-800 space-y-3">
-            <p><strong>MOORA</strong> adalah metode pengambilan keputusan multi-kriteria yang dikembangkan oleh Brauers dan Zavadskas (2006). Metode ini menggunakan pendekatan rasio untuk mengoptimalkan beberapa objektif secara bersamaan.</p>
+            <p><strong>MOORA</strong> adalah metode pengambilan keputusan multi-kriteria yang dikembangkan oleh Brauers dan Zavadskas. Metode ini menggunakan pendekatan rasio untuk mengoptimalkan beberapa objektif secara bersamaan.</p>
             <p><strong>Keunggulan MOORA:</strong></p>
             <ul class="list-disc list-inside ml-4 space-y-1">
                 <li>Perhitungan matematis yang sederhana dan mudah dipahami</li>
