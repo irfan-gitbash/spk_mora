@@ -16,18 +16,24 @@ class SiswaPDF extends FPDF
     // Header
     function Header()
     {
-        // Logo or title
+        // Add logo
+        $logo_path = '../../images/logo.jpg';
+        if (file_exists($logo_path)) {
+            $this->Image($logo_path, 15, 10, 25, 25); // x, y, width, height
+        }
+        
+        // Title - POSISI CENTER SEJAJAR SEMPURNA
         $this->SetFont('Arial','B',16);
-        $this->Cell(0,10,'LAPORAN DATA SISWA',0,1,'C');
+        $this->Cell(0,8,'LAPORAN DATA SISWA',0,1,'C');
         $this->SetFont('Arial','B',12);
-        $this->Cell(0,8,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
+        $this->Cell(0,6,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
         $this->SetFont('Arial','B',10);
         $this->Cell(0,6,'SMKS YAPRI JAKARTA',0,1,'C');
-        $this->Ln(5);
         
-        // Date
-        $this->SetFont('Arial','',10);
-        $this->Cell(0,6,'Tanggal: ' . date('d/m/Y H:i:s'),0,1,'R');
+        // Address
+        $this->SetFont('Arial','',9);
+        $this->Cell(0,5,'Jl. KH. Muhasyim IV No.7, RT.12/RW.6, Cilandak Bar., Kec. Cilandak,',0,1,'C');
+        $this->Cell(0,5,'Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12430',0,1,'C');
         $this->Ln(5);
         
         // Line
@@ -38,14 +44,49 @@ class SiswaPDF extends FPDF
     // Footer
     function Footer()
     {
-        // Position at 1.5 cm from bottom
+        // Position at bottom right for signature section
+        $this->SetY(-55);
+        
+        // Jakarta date and responsible person in bottom right corner
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        
+        $days = [
+            'Sunday' => 'Minggu',
+            'Monday' => 'Senin', 
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu'
+        ];
+        
+        $day = date('d');
+        $hari = $days[date('l')];
+        $month = $months[(int)date('m')];
+        $year = date('Y');
+        
+        // Jakarta with date in bottom right
+        $this->SetFont('Arial','',10);
+        $this->Cell(0,6,'Jakarta, ' . $hari . ' ' . $day . ' ' . $month . ' ' . $year,0,1,'R');
+        $this->Ln(11);
+        
+        // Responsible person name in bottom right
+        $this->SetFont('Arial','',10);
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'(Atikah S.Pd)',0,1,'R');
+        $this->Ln(18);
+        
+        // Line above page number
         $this->SetY(-15);
-        // Line
         $this->Line(10, $this->GetY(), 200, $this->GetY());
         $this->Ln(2);
-        // Arial italic 8
-        $this->SetFont('Arial','I',8);
+        
         // Page number
+        $this->SetFont('Arial','I',8);
         $this->Cell(0,10,'Halaman '.$this->PageNo().' dari {nb}',0,0,'C');
     }
     
@@ -186,62 +227,11 @@ try {
         );
     }
     
-    // Add summary statistics
-    $pdf->SummarySection(
-        count($students),
-        $newest_student,
-        $oldest_student
-    );
-    
-    // Add detailed student information
-    $pdf->StudentDetailsSection($students);
-    
-    // Add analysis section
-    $pdf->Ln(10);
-    $pdf->SetFont('Arial','B',12);
-    $pdf->Cell(0,8,'ANALISIS DATA',0,1,'L');
-    $pdf->Ln(2);
-    
-    // Calculate monthly registration statistics
-    $monthly_stats = [];
-    foreach ($students as $student) {
-        $month_year = date('Y-m', strtotime($student['created_at']));
-        if (!isset($monthly_stats[$month_year])) {
-            $monthly_stats[$month_year] = 0;
-        }
-        $monthly_stats[$month_year]++;
-    }
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'Statistik Pendaftaran per Bulan:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    
-    foreach ($monthly_stats as $month => $count) {
-        $month_name = date('F Y', strtotime($month . '-01'));
-        $pdf->Cell(0,5,'- ' . $month_name . ': ' . $count . ' siswa',0,1,'L');
-    }
-    
-    // Add recommendations
-    $pdf->Ln(5);
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'Rekomendasi:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    
-    if (count($students) < 10) {
-        $pdf->Cell(0,5,'- Perlu meningkatkan promosi untuk menambah jumlah siswa',0,1,'L');
-    } else {
-        $pdf->Cell(0,5,'- Jumlah siswa sudah memadai untuk analisis yang akurat',0,1,'L');
-    }
-    
-    $pdf->Cell(0,5,'- Lakukan evaluasi berkala terhadap metode pengajaran',0,1,'L');
-    $pdf->Cell(0,5,'- Pantau perkembangan setiap siswa secara individual',0,1,'L');
-    
     // Add footer information
     $pdf->Ln(8);
     $pdf->SetFont('Arial','I',8);
     $pdf->Cell(0,5,'Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan',0,1,'C');
     $pdf->Cell(0,5,'SMKS YAPRI JAKARTA - ' . date('Y'),0,1,'C');
-    $pdf->Cell(0,5,'Dokumen ini bersifat rahasia dan hanya untuk keperluan internal',0,1,'C');
     
     // Output PDF
     $filename = 'Laporan_Data_Siswa_' . date('Y-m-d_H-i-s') . '.pdf';

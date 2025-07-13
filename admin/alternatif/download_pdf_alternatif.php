@@ -16,18 +16,27 @@ class AlternatifPDF extends FPDF
     // Header
     function Header()
     {
-        // Logo or title
+        // Add logo
+        $logo_path = '../../images/logo.jpg';
+        if (file_exists($logo_path)) {
+            $this->Image($logo_path, 15, 10, 25, 25); // x, y, width, height
+        }
+        
+        // HAPUS SetX(50) untuk alignment center yang sempurna
+        // $this->SetX(50);
+        
+        // Title - POSISI CENTER SEJAJAR SEMPURNA
         $this->SetFont('Arial','B',16);
-        $this->Cell(0,10,'LAPORAN DATA STRATEGI',0,1,'C');
+        $this->Cell(0,8,'LAPORAN DATA STRATEGI',0,1,'C');
         $this->SetFont('Arial','B',12);
-        $this->Cell(0,8,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
+        $this->Cell(0,6,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
         $this->SetFont('Arial','B',10);
         $this->Cell(0,6,'SMKS YAPRI JAKARTA',0,1,'C');
-        $this->Ln(5);
         
-        // Date
-        $this->SetFont('Arial','',10);
-        $this->Cell(0,6,'Tanggal: ' . date('d/m/Y H:i:s'),0,1,'R');
+        // Address
+        $this->SetFont('Arial','',9);
+        $this->Cell(0,5,'Jl. KH. Muhasyim IV No.7, RT.12/RW.6, Cilandak Bar., Kec. Cilandak,',0,1,'C');
+        $this->Cell(0,5,'Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12430',0,1,'C');
         $this->Ln(5);
         
         // Line
@@ -38,17 +47,60 @@ class AlternatifPDF extends FPDF
     // Footer
     function Footer()
     {
-        // Position at 1.5 cm from bottom
+        // Position at bottom right for signature section - NAIK LEBIH KE ATAS
+        $this->SetY(-70); // Ubah dari -35 menjadi -50 untuk naik lebih ke atas
+        
+       // Jakarta date and responsible person in bottom right corner
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+         $days = [
+            'Sunday' => 'Minggu',
+            'Monday' => 'Senin', 
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu'
+        ];
+         $day = date('d');
+        $hari = $days[date('l')];
+        $month = $months[(int)date('m')];
+        $year = date('Y');
+        
+       // Jakarta with date in bottom right
+        $this->SetFont('Arial','',10);
+        $this->Cell(0,6,'Jakarta, ' . $hari . ' ' . $day . ' ' . $month . ' ' . $year,0,1,'R');
+        $this->Ln(11); // Kurangi jarak dari 8 menjadi 5
+        
+        // Responsible person name in bottom right
+        $this->SetFont('Arial','',10);
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'(Atikah S.Pd)',0,1,'R');
+          $this->Ln(18); // Kurangi jarak dari 8 menjadi 5
+        
+        // Line above page number
         $this->SetY(-15);
-        // Line
         $this->Line(10, $this->GetY(), 200, $this->GetY());
         $this->Ln(2);
-        // Arial italic 8
-        $this->SetFont('Arial','I',8);
+        
         // Page number
+        $this->SetFont('Arial','I',8);
         $this->Cell(0,10,'Halaman '.$this->PageNo().' dari {nb}',0,0,'C');
     }
     
+    // Helper function for Indonesian months
+    function getIndonesianMonth($month_num) {
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        return $months[(int)$month_num];
+    }
+
     // Table header
     function TableHeader()
     {
@@ -156,7 +208,16 @@ try {
     $pdf->Ln(5);
     $pdf->SetFont('Arial','I',8);
     $pdf->Cell(0,5,'Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan',0,1,'C');
-    $pdf->Cell(0,5,'SMKS YAPRI JAKARTA - ' . date('Y'),0,1,'C');
+    $pdf->Cell(0,5,'SMKS YAPRI JAKARTA - 2025',0,1,'C');
+    
+    // HAPUS bagian ini karena sudah ada di Footer function:
+    // $pdf->Ln(5); // Tambah jarak baris lebih besar
+    // $pdf->SetFont('Arial','',9);
+    // $pdf->SetRightMargin(10); // Tambah margin kanan
+    // $pdf->Cell(0,5,'Jakarta, 13 Juli 2025',0,1,'R');
+    // $pdf->Ln(2); // Tambah jarak antara Jakarta dan nama
+    // $pdf->SetFont('Arial','B',9);
+    // $pdf->Cell(0,5,'Atikah.S.Pd',0,1,'R');
     
     // Output PDF
     $filename = 'Laporan_Data_Strategi_' . date('Y-m-d_H-i-s') . '.pdf';

@@ -16,18 +16,24 @@ class KriteriaPDF extends FPDF
     // Header
     function Header()
     {
-        // Logo or title
+        // Add logo
+        $logo_path = '../../images/logo.jpg';
+        if (file_exists($logo_path)) {
+            $this->Image($logo_path, 15, 10, 25, 25); // x, y, width, height
+        }
+        
+        // Title - POSISI CENTER SEJAJAR SEMPURNA
         $this->SetFont('Arial','B',16);
-        $this->Cell(0,10,'LAPORAN DATA KRITERIA',0,1,'C');
+        $this->Cell(0,8,'LAPORAN DATA KRITERIA',0,1,'C');
         $this->SetFont('Arial','B',12);
-        $this->Cell(0,8,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
+        $this->Cell(0,6,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
         $this->SetFont('Arial','B',10);
         $this->Cell(0,6,'SMKS YAPRI JAKARTA',0,1,'C');
-        $this->Ln(5);
         
-        // Date
-        $this->SetFont('Arial','',10);
-        $this->Cell(0,6,'Tanggal: ' . date('d/m/Y H:i:s'),0,1,'R');
+        // Address
+        $this->SetFont('Arial','',9);
+        $this->Cell(0,5,'Jl. KH. Muhasyim IV No.7, RT.12/RW.6, Cilandak Bar., Kec. Cilandak,',0,1,'C');
+        $this->Cell(0,5,'Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12430',0,1,'C');
         $this->Ln(5);
         
         // Line
@@ -38,14 +44,49 @@ class KriteriaPDF extends FPDF
     // Footer
     function Footer()
     {
-        // Position at 1.5 cm from bottom
+        // Position at bottom right for signature section
+        $this->SetY(-60);
+        
+      // Jakarta date and responsible person in bottom right corner
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+                $days = [
+            'Sunday' => 'Minggu',
+            'Monday' => 'Senin', 
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu'
+        ];
+        
+        $day = date('d');
+        $hari = $days[date('l')];
+        $month = $months[(int)date('m')];
+        $year = date('Y');
+        
+        // Jakarta with date in bottom right
+        // Jakarta with date in bottom right
+        $this->SetFont('Arial','',10);
+        $this->Cell(0,6,'Jakarta, ' . $hari . ' ' . $day . ' ' . $month . ' ' . $year,0,1,'R');
+        $this->Ln(11);
+        
+        // Responsible person name in bottom right
+        $this->SetFont('Arial','',10);
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'(Atikah S.Pd)',0,1,'R');
+        $this->Ln(18);
+        
+        // Line above page number
         $this->SetY(-15);
-        // Line
         $this->Line(10, $this->GetY(), 200, $this->GetY());
         $this->Ln(2);
-        // Arial italic 8
-        $this->SetFont('Arial','I',8);
+        
         // Page number
+        $this->SetFont('Arial','I',8);
         $this->Cell(0,10,'Halaman '.$this->PageNo().' dari {nb}',0,0,'C');
     }
     
@@ -158,12 +199,12 @@ try {
     
     // Add summary information
     $pdf->SetFont('Arial','B',12);
-    $pdf->Cell(0,8,'INFORMASI UMUM',0,1,'L');
+    $pdf->Cell(0,8,'RINGKASAN DATA',0,1,'L');
     $pdf->SetFont('Arial','',10);
     $pdf->Cell(0,6,'Total Siswa: ' . count($grouped_data),0,1,'L');
     $pdf->Cell(0,6,'Total Record Kriteria: ' . $total_records,0,1,'L');
     $pdf->Cell(0,6,'Tanggal Generate: ' . date('d F Y, H:i:s'),0,1,'L');
-    $pdf->Ln(8);
+    $pdf->Ln(5);
     
     // Process each student
     foreach ($grouped_data as $student_name => $student_data) {
@@ -218,52 +259,11 @@ try {
         $avg_motivasi
     );
     
-    // Add detailed criteria explanation
-    $pdf->Ln(10);
-    $pdf->SetFont('Arial','B',12);
-    $pdf->Cell(0,8,'PENJELASAN KRITERIA',0,1,'L');
-    $pdf->Ln(2);
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'1. Kemampuan Grammar:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Penilaian kemampuan tata bahasa siswa (skala 1-100)',0,1,'L');
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'2. Kemampuan Speaking:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Penilaian kemampuan berbicara siswa (skala 1-100)',0,1,'L');
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'3. Motivasi Belajar:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Tingkat motivasi belajar siswa (skala 1-100)',0,1,'L');
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'4. Gaya Belajar:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Visual, Auditori, atau Kinestetik',0,1,'L');
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'5. Kecocokan Strategi:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Tingkat kecocokan dengan strategi pembelajaran (skala 1-100)',0,1,'L');
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'6. Durasi:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Waktu pembelajaran dalam menit',0,1,'L');
-    
-    $pdf->SetFont('Arial','B',10);
-    $pdf->Cell(0,6,'7. Bobot Kognitif:',0,1,'L');
-    $pdf->SetFont('Arial','',9);
-    $pdf->Cell(0,5,'   Bobot tingkat kognitif pembelajaran (skala 1-100)',0,1,'L');
-    
     // Add footer information
     $pdf->Ln(8);
     $pdf->SetFont('Arial','I',8);
     $pdf->Cell(0,5,'Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan',0,1,'C');
-    $pdf->Cell(0,5,'SMKS YAPRI JAKARTA - ' . date('Y'),0,1,'C');
+    $pdf->Cell(0,5,'SMKS YAPRI JAKARTA - 2025',0,1,'C');
     
     // Output PDF
     $filename = 'Laporan_Data_Kriteria_' . date('Y-m-d_H-i-s') . '.pdf';

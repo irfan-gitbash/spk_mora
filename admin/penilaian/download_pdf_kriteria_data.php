@@ -24,15 +24,74 @@ class PDF extends FPDF
 {
     function Header()
     {
+        // Add logo
+        $logo_path = '../../images/logo.jpg';
+        if (file_exists($logo_path)) {
+            $this->Image($logo_path, 15, 10, 25, 25); // x, y, width, height
+        }
+        
+        // Title - POSISI CENTER SEJAJAR SEMPURNA
         $this->SetFont('Arial','B',16);
-        $this->Cell(0,10,'Data Yang Terpilih dari Halaman Manajemen Kriteria',0,1,'C');
-        $this->Cell(0,10,'Sistem Pendukung Keputusan MOORA',0,1,'C');
-        $this->Ln(10);
+        $this->Cell(0,8,'DATA YANG TERPILIH DARI HALAMAN MANAJEMEN KRITERIA',0,1,'C');
+        $this->SetFont('Arial','B',12);
+        $this->Cell(0,6,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'SMKS YAPRI JAKARTA',0,1,'C');
+        
+        // Address
+        $this->SetFont('Arial','',9);
+        $this->Cell(0,5,'Jl. KH. Muhasyim IV No.7, RT.12/RW.6, Cilandak Bar., Kec. Cilandak,',0,1,'C');
+        $this->Cell(0,5,'Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12430',0,1,'C');
+        $this->Ln(5);
+        
+        // Line
+        $this->Line(10, $this->GetY(), 287, $this->GetY()); // Adjusted for landscape
+        $this->Ln(5);
     }
 
     function Footer()
     {
+        // Position at bottom right for signature section
+        $this->SetY(-45);
+        
+        // Jakarta date and responsible person in bottom right corner
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $days = [
+            'Sunday' => 'Minggu',
+            'Monday' => 'Senin', 
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu'
+        ];
+
+        $day = date('d');
+        $hari = $days[date('l')];
+        $month = $months[(int)date('m')];
+        $year = date('Y');
+        
+        // Jakarta with date in bottom right
+        $this->SetFont('Arial','',10);
+        $this->Cell(0,6,'Jakarta, ' . $hari . ' ' . $day . ' ' . $month . ' ' . $year,0,1,'R');
+        $this->Ln(11);
+        
+        // Responsible person name in bottom right
+        $this->SetFont('Arial','',10);
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'(Atikah S.Pd)',0,1,'R');
+        $this->Ln(18);
+        
+        // Line above page number
         $this->SetY(-15);
+        $this->Line(10, $this->GetY(), 287, $this->GetY()); // Adjusted for landscape
+        $this->Ln(2);
+        
+        // Page number
         $this->SetFont('Arial','I',8);
         $this->Cell(0,10,'Halaman '.$this->PageNo().'/{nb}',0,0,'C');
     }
@@ -41,7 +100,7 @@ class PDF extends FPDF
     {
         // Header
         $this->SetFont('Arial','B',8);
-        $this->SetFillColor(200,220,255);
+        $this->SetFillColor(240,240,240);
         
         // Column widths
         $w = array(10, 25, 25, 20, 20, 18, 18, 22, 15, 15);
@@ -99,13 +158,11 @@ $header = array('No', 'Nama Siswa', 'Strategi', 'Grammar', 'Speaking', 'Motivasi
 
 $pdf->BasicTable($header, $kriteria_data);
 
-// Add summary information
-$pdf->Ln(10);
-$pdf->SetFont('Arial','B',10);
-$pdf->Cell(0,10,'Ringkasan Data:',0,1,'L');
-$pdf->SetFont('Arial','',9);
-$pdf->Cell(0,6,'Total Data: ' . count($kriteria_data) . ' record',0,1,'L');
-$pdf->Cell(0,6,'Tanggal Generate: ' . date('d/m/Y H:i:s'),0,1,'L');
+// Add footer information
+$pdf->Ln(8);
+$pdf->SetFont('Arial','I',8);
+$pdf->Cell(0,5,'Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan',0,1,'C');
+$pdf->Cell(0,5,'SMKS YAPRI JAKARTA - ' . date('Y'),0,1,'C');
 
 $pdf->Output('D', 'Data_Kriteria_Manajemen_' . date('Y-m-d_H-i-s') . '.pdf');
 ?>

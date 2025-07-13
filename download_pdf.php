@@ -58,40 +58,76 @@ class PDF extends FPDF
     // Header halaman
     function Header()
     {
-        // Logo atau gambar header (opsional)
-        // $this->Image('logo.png',10,6,30);
+        // Add logo
+        $logo_path = 'images/logo.jpg';
+        if (file_exists($logo_path)) {
+            $this->Image($logo_path, 15, 10, 25, 25); // x, y, width, height
+        }
         
-        // Arial bold 15
+        // Title - POSISI CENTER SEJAJAR SEMPURNA
         $this->SetFont('Arial','B',16);
-        // Pindah ke kanan
-        $this->Cell(80);
-        // Judul
-        $this->Cell(30,10,'LAPORAN HASIL PERHITUNGAN MOORA',0,0,'C');
-        // Line break
-        $this->Ln(8);
-        
-        // Arial bold 12
+        $this->Cell(0,8,'LAPORAN HASIL PERHITUNGAN MOORA',0,1,'C');
         $this->SetFont('Arial','B',12);
-        $this->Cell(80);
-        $this->Cell(30,10,'Sistem Pendukung Keputusan Pemilihan Metode Pembelajaran',0,0,'C');
-        $this->Ln(6);
+        $this->Cell(0,6,'Sistem Pendukung Keputusan Metode Pengajaran',0,1,'C');
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'SMKS YAPRI JAKARTA',0,1,'C');
         
-        // Arial normal 10
-        $this->SetFont('Arial','',10);
-        $this->Cell(80);
-        $this->Cell(30,10,'SMKS YAPRI JAKARTA',0,0,'C');
-        $this->Ln(15);
+        // Address
+        $this->SetFont('Arial','',9);
+        $this->Cell(0,5,'Jl. KH. Muhasyim IV No.7, RT.12/RW.6, Cilandak Bar., Kec. Cilandak,',0,1,'C');
+        $this->Cell(0,5,'Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12430',0,1,'C');
+        $this->Ln(5);
+        
+        // Line
+        $this->Line(10, $this->GetY(), 200, $this->GetY());
+        $this->Ln(5);
     }
     
     // Footer halaman
     function Footer()
     {
-        // Posisi 1.5 cm dari bawah
+        // Position at bottom right for signature section
+        $this->SetY(-50);
+        
+        // Jakarta date and responsible person in bottom right corner
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $days = [
+            'Sunday' => 'Minggu',
+            'Monday' => 'Senin', 
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu'
+        ];
+        
+        $day = date('d');
+        $hari = $days[date('l')];
+        $month = $months[(int)date('m')];
+        $year = date('Y');
+        
+        // Jakarta with date in bottom right
+        $this->SetFont('Arial','',10);
+        $this->Cell(0,6,'Jakarta, ' . $hari . ' ' . $day . ' ' . $month . ' ' . $year,0,1,'R');
+        $this->Ln(11);
+        
+        // Responsible person name in bottom right
+        $this->SetFont('Arial','B',10);
+        $this->Cell(0,6,'(Atikah S.Pd)',0,1,'R');
+        $this->Ln(18);
+        
+        // Line above page number
         $this->SetY(-15);
-        // Arial italic 8
+        $this->Line(10, $this->GetY(), 200, $this->GetY());
+        $this->Ln(2);
+        
+        // Page number
         $this->SetFont('Arial','I',8);
-        // Nomor halaman
-        $this->Cell(0,10,'Halaman '.$this->PageNo().'/{nb} | Dicetak pada: '.date('d/m/Y H:i:s').' | SMKS YAPRI JAKARTA',0,0,'C');
+        $this->Cell(0,10,'Halaman '.$this->PageNo().'/{nb}',0,0,'C');
     }
     
     // Fungsi untuk membuat tabel dengan border
@@ -227,45 +263,6 @@ foreach ($hasil_moora as $hasil) {
 }
 
 $pdf->FancyTable($header, $data, $widths);
-
-// Detail Kriteria menggunakan definisi yang benar
-$pdf->SectionTitle('Detail Kriteria Penilaian');
-
-$header_kriteria = array('No', 'Nama Kriteria', 'Bobot', 'Tipe', 'Keterangan');
-$widths_kriteria = array(15, 70, 25, 25, 55);
-
-$data_kriteria = array();
-foreach ($kriteria_definitions as $index => $k) {
-    $keterangan = $k['tipe'] == 'benefit' ? 'Semakin tinggi semakin baik' : 'Semakin rendah semakin baik';
-    
-    $data_kriteria[] = array(
-        ($index + 1),
-        $k['nama'],
-        number_format($k['bobot'], 3),
-        strtoupper($k['tipe']),
-        $keterangan
-    );
-}
-
-$pdf->FancyTable($header_kriteria, $data_kriteria, $widths_kriteria);
-
-// Interpretasi Hasil
-if ($terbaik) {
-    $pdf->SectionTitle('Interpretasi dan Rekomendasi');
-    
-    $pdf->SetFont('Arial','B',9);
-    $pdf->Cell(0,6,'Metode pembelajaran terbaik: ' . $terbaik['nama_alternatif'],0,1);
-    
-    $pdf->SetFont('Arial','B',9);
-    $pdf->Cell(0,6,'Nilai optimasi (Yi): ' . number_format($terbaik['yi_value'], 4),0,1);
-    $pdf->Ln(3);
-    
-    $pdf->SetFont('Arial','',9);
-    $pdf->MultiCell(0,5,'Analisis: Metode ini memiliki nilai optimasi tertinggi berdasarkan perhitungan MOORA dengan mempertimbangkan semua kriteria yang telah ditetapkan. Nilai Yi yang tinggi menunjukkan bahwa metode ini memberikan hasil terbaik dalam kombinasi benefit yang maksimal dan cost yang minimal.');
-    $pdf->Ln(3);
-    
-    $pdf->MultiCell(0,5,'Rekomendasi: Disarankan untuk menerapkan metode pembelajaran "' . $terbaik['nama_alternatif'] . '" sebagai prioritas utama dalam proses pembelajaran di SMKS YAPRI Jakarta.');
-}
 
 // Output PDF
 $filename = 'Laporan_MOORA_' . date('Y-m-d_H-i-s') . '.pdf';

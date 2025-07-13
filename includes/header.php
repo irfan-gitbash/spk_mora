@@ -117,6 +117,12 @@ require_once __DIR__ . '/auth.php';
                         Dashboard
                     </a>
                     
+                    <!-- About Us -->
+                    <a href="/spk_mora/about.php" class="flex items-center px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-all duration-200 <?php echo basename($_SERVER['PHP_SELF']) == 'about.php' ? 'bg-white/20 text-white' : 'text-blue-100 hover:text-white'; ?>">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Tentang Kami
+                    </a>
+                    
                     <!-- Admin Dropdown -->
                     <?php if ($auth->isAdmin()): ?>
                     <div class="relative group">
@@ -228,6 +234,12 @@ require_once __DIR__ . '/auth.php';
                     <a href="/spk_mora" class="flex items-center px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' && !strpos($_SERVER['REQUEST_URI'], '/admin/') ? 'bg-white/20 text-white' : 'text-blue-100 hover:text-white hover:bg-white/10'; ?>">
                         <i class="fas fa-tachometer-alt mr-3 w-5"></i>
                         Dashboard
+                    </a>
+                    
+                    <!-- About Us -->
+                    <a href="/spk_mora/about.php" class="flex items-center px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 <?php echo basename($_SERVER['PHP_SELF']) == 'about.php' ? 'bg-white/20 text-white' : 'text-blue-100 hover:text-white hover:bg-white/10'; ?>">
+                        <i class="fas fa-info-circle mr-3 w-5"></i>
+                        Tentang Kami
                     </a>
                     
                     <?php if ($auth->isAdmin()): ?>
